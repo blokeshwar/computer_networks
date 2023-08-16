@@ -10,8 +10,11 @@ def handle_client(client_socket, client_id):
             message = client_socket.recv(1024).decode('utf-8')
             if not message:
                 break
-            recipient_id, content = message.split(':', 1)
-            send_message(client_id, recipient_id, content)
+            if message == "list":
+                send_online_clients(client_socket)
+            else:
+                recipient_id, content = message.split(':', 1)
+                send_message(client_id, recipient_id, content)
         except:
             break
 
@@ -19,6 +22,14 @@ def handle_client(client_socket, client_id):
         del clients[client_id]
         print(f"Client {client_id} disconnected")
         client_socket.close()
+
+def send_online_clients(client_socket):
+    online_clients = []
+    with lock:
+        for client_id in clients.keys():
+            online_clients.append(client_id)
+    online_clients_str = ', '.join(online_clients)
+    client_socket.send(f"Online Clients: {online_clients_str}".encode('utf-8'))
 
 def send_message(sender_id, recipient_id, content):
     with lock:

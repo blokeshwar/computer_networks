@@ -12,10 +12,13 @@ def receive_messages():
 
 def send_messages():
     while True:
-        recipient_id = input("Enter recipient's unique ID: ")
-        message = input("Enter your message: ")
-        full_message = f"{recipient_id}:{message}"
-        client_socket.send(full_message.encode('utf-8'))
+        recipient_id = input("Enter recipient's unique ID (or 'list' to see online clients): ")
+        if recipient_id.lower() == "list":
+            client_socket.send(recipient_id.encode('utf-8'))
+        else:
+            message = input("Enter your message: ")
+            full_message = f"{recipient_id}:{message}"
+            client_socket.send(full_message.encode('utf-8'))
 
 HOST = 'localhost'
 PORT = 12345
