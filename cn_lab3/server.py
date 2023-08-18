@@ -7,6 +7,7 @@ clients = {}
 lock = threading.Lock()
 
 
+
 def generate_unique_id():
     return ''.join(random.choice(string.hexdigits) for _ in range(6))
 
