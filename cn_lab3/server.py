@@ -1,59 +1,76 @@
 import socket
 import threading
+import random
+import string
 
 clients = {}
 lock = threading.Lock()
 
-def handle_client(client_socket, client_id):
+
+def generate_unique_id():
+    return ''.join(random.choice(string.hexdigits) for _ in range(6))
+
+
+def handle_client(client_socket, client_address):
+    unique_id = generate_unique_id()
+
+    with lock:
+        clients[unique_id] = client_socket
+        client_socket.send(f"Your unique ID is: {unique_id}".encode('utf-8'))
+        update_client_list()
+
+    print(f"New connection from {client_address} - ID: {unique_id}")
+
     while True:
         try:
             message = client_socket.recv(1024).decode('utf-8')
             if not message:
                 break
-            if message == "list":
-                send_online_clients(client_socket)
-            else:
-                recipient_id, content = message.split(':', 1)
-                send_message(client_id, recipient_id, content)
-        except:
+
+            receiver_id, msg = message.split('|')
+            with lock:
+                receiver_socket = clients.get(receiver_id)
+                if receiver_socket:
+                    receiver_socket.send(f"Message from {unique_id}: {msg}".encode('utf-8'))
+                else:
+                    client_socket.send(f"Error: Client {receiver_id} not found.".encode('utf-8'))
+
+        except Exception as e:
+            print(f"Error: {e}")
             break
 
     with lock:
-        del clients[client_id]
-        print(f"Client {client_id} disconnected")
-        client_socket.close()
+        del clients[unique_id]
+        print(f"Connection closed with {client_address} - ID: {unique_id}")
+        update_client_list()
 
-def send_online_clients(client_socket):
-    online_clients = []
-    with lock:
-        for client_id in clients.keys():
-            online_clients.append(client_id)
-    online_clients_str = ', '.join(online_clients)
-    client_socket.send(f"Online Clients: {online_clients_str}".encode('utf-8'))
+    client_socket.close()
 
-def send_message(sender_id, recipient_id, content):
-    with lock:
-        if recipient_id in clients:
-            recipient_socket = clients[recipient_id]
-            try:
-                recipient_socket.send(f"From {sender_id}: {content}".encode('utf-8'))
-            except:
-                pass
 
-HOST = '0.0.0.0'
-PORT = 12345
+def update_client_list():
+    online_clients = "Online Clients: " + ', '.join(clients.keys())
+    for client_socket in clients.values():
+        try:
+            client_socket.send(online_clients.encode('utf-8'))
+        except:
+            pass
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((HOST, PORT))
-server.listen()
 
-print("Server listening on", HOST, PORT)
+def main():
+    host = '127.0.0.1'
+    port = 12345
 
-while True:
-    client_socket, client_addr = server.accept()
-    with lock:
-        client_id = client_socket.recv(1024).decode('utf-8')
-        clients[client_id] = client_socket
-        print(f"Client {client_id} connected from", client_addr)
-        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_id))
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
+
+    print(f"Server listening on {host}:{port}")
+
+    while True:
+        client_socket, client_address = server_socket.accept()
+        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
         client_thread.start()
+
+
+if __name__ == '__main__':
+    main()

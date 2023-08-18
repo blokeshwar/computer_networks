@@ -1,36 +1,42 @@
 import socket
 import threading
 
-def receive_messages():
+def receive_messages(client_socket):
     while True:
         try:
             message = client_socket.recv(1024).decode('utf-8')
             print(message)
         except:
-            print("Error receiving message.")
             break
 
-def send_messages():
+def main():
+    host = '127.0.0.1'
+    port = 12345
+
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect((host, port))
+
+    client_id = client_socket.recv(1024).decode('utf-8')
+    print(f"Your unique ID: {client_id}")
+
+    receive_thread = threading.Thread(target=receive_messages, args=(client_socket,))
+    receive_thread.start()
+
     while True:
-        recipient_id = input("Enter recipient's unique ID (or 'list' to see online clients): ")
-        if recipient_id.lower() == "list":
-            client_socket.send(recipient_id.encode('utf-8'))
-        else:
+        try:
+            receiver_id = input("Enter receiver's ID (or 'exit' to quit): ")
+            if receiver_id.lower() == 'exit':
+                client_socket.send("exit|".encode('utf-8'))
+                break
+
             message = input("Enter your message: ")
-            full_message = f"{recipient_id}:{message}"
-            client_socket.send(full_message.encode('utf-8'))
+            client_socket.send(f"{receiver_id}|{message}".encode('utf-8'))
 
-HOST = 'localhost'
-PORT = 12345
+        except Exception as e:
+            print(f"Error: {e}")
+            break
 
-client_id = input("Enter your unique ID: ")
+    client_socket.close()
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((HOST, PORT))
-client_socket.send(client_id.encode('utf-8'))
-
-recv_thread = threading.Thread(target=receive_messages)
-recv_thread.start()
-
-send_thread = threading.Thread(target=send_messages)
-send_thread.start()
+if __name__ == '__main__':
+    main()
